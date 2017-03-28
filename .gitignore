@@ -1,0 +1,7 @@
+*.pyc
+*.out
+*.sh
+*.npy
+models_nuswide/*
+log_nuswide/*
+valshot_nuswide/*
