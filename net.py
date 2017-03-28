@@ -35,7 +35,6 @@ class DVSQ(object):
         self.max_iter_update_b = config['max_iter_update_b']
         #self.centers_device = config['centers_device']
         
-        self.alpha = config['alpha']
         self.batch_size = config['batch_size']
         self.max_iter = config['max_iter']
         self.img_model = config['img_model']
