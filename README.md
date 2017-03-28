@@ -28,6 +28,6 @@ Citation
                    Jianmin Wang and
                    Shichen Liu},
       title     = {Deep Visual-Semantic Quantization for Efficient Image Retrieval},
-      booktitle = {Proceedings of the Thirty-First {AAAI} Conference on Artificial Intelligence,
-                   February 4-9, 2017, San Francisco, California, {USA.}}
+      booktitle = {2017 {IEEE} Conference on Computer Vision and Pattern Recognition,
+          {CVPR} 2017, Honolulu, Hawaii, USA, July 21-26, 2017}
     }
