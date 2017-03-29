@@ -1,8 +1,7 @@
 ##################################################################################
-# 2016 9.22 Created by LiuShichen                                                #
-# Learning to Ranking Hash on Deep Net (Tensorflow version)                      #
-#                                                                                #
-#                                                                                #
+# Deep Visual-Semantic Quantization for Efficient Image Retrieval                #
+# Authors: Yue Cao, Mingsheng Long, Jianmin Wang, Shichen Liu                    #
+# Contact: caoyue10@gmail.com                                                    #
 ##################################################################################
 
 import os

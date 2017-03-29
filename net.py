@@ -1,8 +1,7 @@
 ##################################################################################
-# 2016 9.22 Created by LiuShichen                                                #
-# Learning to Ranking Hash on Deep Net (Tensorflow version)                      #
-#                                                                                #
-#                                                                                #
+# Deep Visual-Semantic Quantization for Efficient Image Retrieval                #
+# Authors: Yue Cao, Mingsheng Long, Jianmin Wang, Shichen Liu                    #
+# Contact: caoyue10@gmail.com                                                    #
 ##################################################################################
 
 import os
@@ -449,7 +448,7 @@ class DVSQ(object):
 
     def initial_centers(self, img_output):
         C_init = np.zeros([self.subspace_num * self.subcenter_num, self.output_dim])
-        print "#ZDQ train# initilizing Centers"
+        print "#DVSQ train# initilizing Centers"
         all_output = img_output
         for i in xrange(self.subspace_num):
             kmeans = MiniBatchKMeans(n_clusters=self.subcenter_num).fit(all_output[:, i * self.output_dim / self.subspace_num: (i + 1) * self.output_dim / self.subspace_num])
@@ -572,13 +571,13 @@ class DVSQ(object):
                 if epoch == 0:
                     with tf.device(self.device):
                         for i in xrange(self.max_iter_update_Cb):
-                            print "#ZDQ Train# initialize centers in ", i, " iter"
+                            print "#DVSQ Train# initialize centers in ", i, " iter"
                             self.sess.run(self.C.assign(self.initial_centers(img_dataset.output)))
                             
-                        print "#ZDQ Train# initialize centers done!!!"
+                        print "#DVSQ Train# initialize centers done!!!"
                 epoch = epoch + 1
                 for i in xrange(self.max_iter_update_Cb):
-                    print "#ZDQ Train# update codes and centers in ", i, " iter"
+                    print "#DVSQ Train# update codes and centers in ", i, " iter"
                     self.update_codes_batch(img_dataset, self.code_batch_size)
                     self.update_centers(img_dataset)
             
