@@ -565,13 +565,9 @@ class DVSQ(object):
         for i in xrange(query_batch):
             images, labels, codes = img_query.next_batch(self.batch_size)
 
-            output, loss, test2, test3 = self.sess.run([self.img_last_layer, self.cos_loss, self.test2, self.test3],
+            output, loss = self.sess.run([self.img_last_layer, self.cos_loss],
                                    feed_dict={self.img: images, self.img_label: labels})
             img_query.feed_batch_output(self.batch_size, output)
-            print test2
-            print test3
-            #pdb.set_trace()
-            #print output[:10, :10]
             if False:
                 bar.move('Cosine Loss: %s'%loss)
             else:

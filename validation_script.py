@@ -32,7 +32,7 @@ config = {
 
     'R': 5000,
     # trained model for validation
-    'model_weights': '.models/' + model_weight,
+    'model_weights': model_weight,
     
     'img_model': 'alexnet',
     'stage': 'validation',
