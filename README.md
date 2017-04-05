@@ -31,3 +31,23 @@ Citation
       booktitle = {2017 {IEEE} Conference on Computer Vision and Pattern Recognition,
           {CVPR} 2017, Honolulu, Hawaii, USA, July 21-26, 2017}
     }
+
+In branch aaai16-dqn, we've done a demo of our AAAI 16 paper: Deep Quantization Networks for Efficient Image Retrieval.
+
+    @inproceedings{DBLP:conf/aaai/CaoL0ZW16,
+      author    = {Yue Cao and
+                   Mingsheng Long and
+                   Jianmin Wang and
+                   Han Zhu and
+                   Qingfu Wen},
+      title     = {Deep Quantization Network for Efficient Image Retrieval},
+      booktitle = {Proceedings of the Thirtieth {AAAI} Conference on Artificial Intelligence,
+                   February 12-17, 2016, Phoenix, Arizona, {USA.}},
+      pages     = {3457--3463},
+      year      = {2016},
+      crossref  = {DBLP:conf/aaai/2016},
+      url       = {http://www.aaai.org/ocs/index.php/AAAI/AAAI16/paper/view/12040},
+      timestamp = {Thu, 21 Apr 2016 19:28:00 +0200},
+      biburl    = {http://dblp.uni-trier.de/rec/bib/conf/aaai/CaoL0ZW16},
+      bibsource = {dblp computer science bibliography, http://dblp.org}
+    }
