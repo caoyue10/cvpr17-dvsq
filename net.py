@@ -83,9 +83,10 @@ class DVSQ(object):
             ICM_X_expand = tf.expand_dims(self.ICM_X_residual, 1)
             ICM_C_m_expand = tf.expand_dims(self.ICM_C_m, 0)
             # N*sc*D  *  D*n
-            word_dict = tf.constant(np.loadtxt(self.wordvec_dict), dtype=tf.float32)
-            ICM_word_dict = tf.reshape(tf.matmul(tf.reshape(tf.sub(ICM_X_expand, ICM_C_m_expand), [self.code_batch_size*self.subcenter_num, self.output_dim]), tf.transpose(word_dict)), [self.code_batch_size, self.subcenter_num, self.n_class])
-            ICM_sum_squares = tf.reduce_sum(tf.square(ICM_word_dict), reduction_indices = 2)
+            #word_dict = tf.constant(np.loadtxt(self.wordvec_dict), dtype=tf.float32)
+            #ICM_word_dict = tf.reshape(tf.matmul(tf.reshape(tf.sub(ICM_X_expand, ICM_C_m_expand), [self.code_batch_size*self.subcenter_num, self.output_dim]), tf.transpose(word_dict)), [self.code_batch_size, self.subcenter_num, self.n_class])
+            #ICM_sum_squares = tf.reduce_sum(tf.square(ICM_word_dict), reduction_indices = 2)
+            ICM_sum_squares = tf.reduce_sum(tf.square(tf.squeeze(tf.sub(ICM_X_expand, ICM_C_m_expand))), reduction_indices = 2)
             ICM_best_centers = tf.argmin(ICM_sum_squares, 1)
             self.ICM_best_centers_one_hot = tf.one_hot(ICM_best_centers, self.subcenter_num, dtype = tf.float32)
 
@@ -283,8 +284,6 @@ class DVSQ(object):
             self.fc8o = tf.nn.tanh(fc8lo)
             self.deep_param_img['fc8'] = [fc8w, fc8b]
             self.train_last_layer += [fc8w, fc8b]
-            self.test3 = fc8w
-            self.test1 = fc8b
         
         ### load centers
         if 'C' in net_data:
@@ -311,7 +310,29 @@ class DVSQ(object):
 
     def apply_loss_function(self, global_step):
         ### loss function
-        if self.loss_type == 'cos_margin_multi_label':
+        if self.loss_type == 'cos':
+            # let sim = {0, 1} to be {-1, 1}
+            Sim_1 = tf.clip_by_value(tf.matmul(self.img_label, tf.transpose(self.img_label)), 0.0, 1.0)
+            Sim_2 = tf.add(Sim_1,tf.constant(-0.5))
+            Sim = tf.mul(Sim_2,tf.constant(2.0))
+            
+            # compute balance param = num of 0 / num of 1
+            sum_1 = tf.reduce_sum(Sim_1)
+            sum_0 = tf.reduce_sum(tf.abs(Sim))
+            #balance_param = tf.add(tf.abs(tf.add(Sim_1,tf.constant(-1.0))), tf.mul(tf.div(sum_0, sum_1), Sim_1))
+            
+            # stop gradient of norm
+            const_img = tf.stop_gradient(self.img_last_layer)
+
+            ip_1 = tf.matmul(self.img_last_layer, self.img_last_layer, transpose_b=True)
+            def reduce_shaper(t):
+                return tf.reshape(tf.reduce_sum(t, 1), [tf.shape(t)[0], 1])
+            mod_1 = tf.sqrt(tf.matmul(reduce_shaper(tf.square(self.img_last_layer)), reduce_shaper(tf.square(self.img_last_layer)), transpose_b=True))
+            cos_1 = tf.div(ip_1, mod_1)
+            #self.cos_loss = tf.reduce_mean(tf.mul(balance_param, tf.square(tf.sub(Sim, cos_1))))
+            self.cos_loss = tf.reduce_mean(tf.square(tf.sub(Sim, cos_1)))
+
+        elif self.loss_type == 'cos_margin_multi_label':
             assert self.output_dim == 300
             word_dict = tf.constant(np.loadtxt(self.wordvec_dict), dtype=tf.float32)
             ids_dict = tf.constant(np.loadtxt(self.part_ids_dict), shape=[1,self.n_class], dtype=tf.float32)
@@ -350,11 +371,6 @@ class DVSQ(object):
             cos_loss = tf.reduce_sum(tf.maximum(tf.constant(0, dtype=tf.float32), cos_cos))
             self.cos_loss = tf.div(cos_loss, tf.mul(tf.constant(self.n_class, dtype=tf.float32), tf.reduce_sum(self.img_label)))
 
-            self.test1 = cos_cos
-            self.test2 = cos_1
-            self.test3 = cos_2
-            self.test00 = tf.reduce_sum(tf.cast(tf.not_equal(cos_cos, tf.zeros([self.batch_size, self.n_class, self.n_class])), tf.int32))
-            self.test0 = tf.mul(tf.constant(self.n_class, dtype=tf.float32), tf.reduce_sum(self.img_label))
             self.check0 = tf.check_numerics(cos_cos, "cos_cos")
             self.check1 = tf.check_numerics(cos_1, "cos_1")
             self.check2 = tf.check_numerics(cos_2, "cos_2")
@@ -405,15 +421,10 @@ class DVSQ(object):
             cos_loss = tf.reduce_sum(tf.maximum(tf.constant(0, dtype=tf.float32), cos_cos))
             self.cos_loss = tf.div(cos_loss, tf.mul(tf.constant(self.n_class, dtype=tf.float32), tf.reduce_sum(self.img_label)))
 
-            self.test1 = cos_cos
-            self.test2 = cos_1
-            self.test3 = cos_2
         
-        
-        
-        self.precq_loss_img = tf.reduce_mean(tf.reduce_sum(tf.square(tf.sub(self.img_last_layer, tf.matmul(self.b_img, self.C))), 1))
-        word_dict = tf.constant(np.loadtxt(self.wordvec_dict), dtype=tf.float32)
-        self.cq_loss_img = tf.reduce_mean(tf.reduce_sum(tf.square(tf.matmul(tf.sub(self.img_last_layer, tf.matmul(self.b_img, self.C)), tf.transpose(word_dict))), 1))
+        self.cq_loss_img = tf.reduce_mean(tf.reduce_sum(tf.square(tf.sub(self.img_last_layer, tf.matmul(self.b_img, self.C))), 1))
+        #word_dict = tf.constant(np.loadtxt(self.wordvec_dict), dtype=tf.float32)
+        #self.cq_loss_img = tf.reduce_mean(tf.reduce_sum(tf.square(tf.matmul(tf.sub(self.img_last_layer, tf.matmul(self.b_img, self.C)), tf.transpose(word_dict))), 1))
         self.q_lambda = tf.Variable(self.cq_lambda, name='cq_lambda')
         self.cq_loss = tf.mul(self.q_lambda, self.cq_loss_img)
         self.loss = tf.add(self.cos_loss, self.cq_loss)
@@ -544,7 +555,7 @@ class DVSQ(object):
         
         print "######### update codes done ##########"
 
-    def train_cq(self, img_dataset):
+    def train_dvsq(self, img_dataset):
         print ("%s #train# start training" % datetime.now())
         epoch = 0
         epoch_iter = int(ceil(img_dataset.n_samples / self.batch_size))
@@ -559,7 +570,7 @@ class DVSQ(object):
                 assign_lambda = self.q_lambda.assign(0.0)
             self.sess.run([assign_lambda])
 
-            _, cos_loss, cq_loss, fc8_value, test1, test2, test3, lr, output = self.sess.run([self.train_op, self.cos_loss, self.cq_loss, self.deep_param_img['fc8'], self.test1, self.test2, self.test3, self.lr, self.img_last_layer],
+            _, cos_loss, cq_loss, lr, output = self.sess.run([self.train_op, self.cos_loss, self.cq_loss, self.lr, self.img_last_layer],
                                     feed_dict={self.img: images,
                                                self.img_label: labels,
                                                self.b_img: codes})
@@ -587,9 +598,54 @@ class DVSQ(object):
         self.save_model()
         print ("model saved")
 
+
+    def train_pq(self, img_dataset):
+        print ("%s #train# start training" % datetime.now())
+        epoch = 0
+        epoch_iter = int(ceil(img_dataset.n_samples / self.batch_size))
+        
+        for train_iter in xrange(self.max_iter):
+            images, labels, codes = img_dataset.next_batch(self.batch_size)
+            start_time = time.time()
+            
+            if epoch > 0:
+                assign_lambda = self.q_lambda.assign(self.cq_lambda)
+            else:
+                assign_lambda = self.q_lambda.assign(0.0)
+            self.sess.run([assign_lambda])
+
+            _, cos_loss, cq_loss, lr, output = self.sess.run([self.train_op, self.cos_loss, self.cq_loss, self.lr, self.img_last_layer],
+                                    feed_dict={self.img: images,
+                                               self.img_label: labels,
+                                               self.b_img: codes})
+            img_dataset.feed_batch_output(self.batch_size, output)
+            duration = time.time() - start_time
+            
+            # every epoch: update codes and centers
+            if train_iter % (2*epoch_iter) == 0 and train_iter != 0:
+                epoch = epoch + 1
+                for i in xrange(self.max_iter_update_Cb):
+                    print "#DVSQ Train# update codes and centers in ", i, " iter"
+                    # use kmeans to generate centers for each subspace
+                    self.sess.run(self.C.assign(self.initial_centers(img_dataset.output)))
+                    self.update_codes_batch(img_dataset, self.code_batch_size)
+                    #self.update_centers(img_dataset)
+            
+            print("%s #train# step %4d, lr %.8f, cosine margin loss = %.4f, cq loss = %.4f, %.1f sec/batch" % (datetime.now(), train_iter+1, lr, cos_loss, cq_loss, duration))
+                
+        print ("%s #traing# finish training" % datetime.now())
+        self.save_model()
+        print ("model saved")
+
     
 def train(train_img, config):
     model = DVSQ(config)
     img_dataset = Dataset(train_img, config['output_dim'], config['n_subspace'] * config['n_subcenter'])
-    model.train_cq(img_dataset)
+    model.train_dvsq(img_dataset)
+    return model.save_dir
+
+def train_pq(train_img, config):
+    model = DVSQ(config)
+    img_dataset = Dataset(train_img, config['output_dim'], config['n_subspace'] * config['n_subcenter'])
+    model.train_pq(img_dataset)
     return model.save_dir

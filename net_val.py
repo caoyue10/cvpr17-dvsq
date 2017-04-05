@@ -83,9 +83,10 @@ class DVSQ(object):
             ICM_X_expand = tf.expand_dims(self.ICM_X_residual, 1)
             ICM_C_m_expand = tf.expand_dims(self.ICM_C_m, 0)
             # N*sc*D  *  D*n
-            word_dict = tf.constant(np.loadtxt(self.wordvec_dict), dtype=tf.float32)
-            ICM_word_dict = tf.reshape(tf.matmul(tf.reshape(tf.sub(ICM_X_expand, ICM_C_m_expand), [self.code_batch_size*self.subcenter_num, self.output_dim]), tf.transpose(word_dict)), [self.code_batch_size, self.subcenter_num, self.n_class])
-            ICM_sum_squares = tf.reduce_sum(tf.square(ICM_word_dict), reduction_indices = 2)
+            #word_dict = tf.constant(np.loadtxt(self.wordvec_dict), dtype=tf.float32)
+            #ICM_word_dict = tf.reshape(tf.matmul(tf.reshape(tf.sub(ICM_X_expand, ICM_C_m_expand), [self.code_batch_size*self.subcenter_num, self.output_dim]), tf.transpose(word_dict)), [self.code_batch_size, self.subcenter_num, self.n_class])
+            #ICM_sum_squares = tf.reduce_sum(tf.square(ICM_word_dict), reduction_indices = 2)
+            ICM_sum_squares = tf.reduce_sum(tf.square(tf.squeeze(tf.sub(ICM_X_expand, ICM_C_m_expand))), reduction_indices = 2)
             ICM_best_centers = tf.argmin(ICM_sum_squares, 1)
             self.ICM_best_centers_one_hot = tf.one_hot(ICM_best_centers, self.subcenter_num, dtype = tf.float32)
 
@@ -338,7 +339,30 @@ class DVSQ(object):
 
     def apply_loss_function(self, global_step):
         ### loss function
-        if self.loss_type == 'cos_margin_multi_label':
+        if self.loss_type == 'cos':
+            # let sim = {0, 1} to be {-1, 1}
+            Sim_1 = tf.clip_by_value(tf.matmul(self.img_label, tf.transpose(self.img_label)), 0.0, 1.0)
+            Sim_2 = tf.add(Sim_1,tf.constant(-0.5))
+            Sim = tf.mul(Sim_2,tf.constant(2.0))
+            
+            # compute balance param = num of 0 / num of 1
+            sum_1 = tf.reduce_sum(Sim_1)
+            sum_0 = tf.reduce_sum(tf.abs(Sim))
+            #balance_param = tf.add(tf.abs(tf.add(Sim_1,tf.constant(-1.0))), tf.mul(tf.div(sum_0, sum_1), Sim_1))
+            
+            # stop gradient of norm
+            const_img = tf.stop_gradient(self.img_last_layer)
+
+            ip_1 = tf.matmul(self.img_last_layer, self.img_last_layer, transpose_b=True)
+            def reduce_shaper(t):
+                return tf.reshape(tf.reduce_sum(t, 1), [tf.shape(t)[0], 1])
+            #mod_1 = tf.sqrt(tf.matmul(reduce_shaper(tf.square(const_img)), reduce_shaper(tf.square(const_img)), transpose_b=True))
+            mod_1 = tf.sqrt(tf.matmul(reduce_shaper(tf.square(self.img_last_layer)), reduce_shaper(tf.square(self.img_last_layer)), transpose_b=True))
+            cos_1 = tf.div(ip_1, mod_1)
+            #self.cos_loss = tf.reduce_mean(tf.mul(balance_param, tf.square(tf.sub(Sim, cos_1))))
+            self.cos_loss = tf.reduce_mean(tf.square(tf.sub(Sim, cos_1)))
+
+        elif self.loss_type == 'cos_margin_multi_label':
             assert self.output_dim == 300
             word_dict = tf.constant(np.loadtxt(self.wordvec_dict), dtype=tf.float32)
             ids_dict = tf.constant(np.loadtxt(self.part_ids_dict), shape=[1,self.n_class], dtype=tf.float32)
@@ -424,9 +448,9 @@ class DVSQ(object):
             cos_loss = tf.reduce_sum(tf.maximum(tf.constant(0, dtype=tf.float32), cos_cos))
             self.cos_loss = tf.div(cos_loss, tf.mul(tf.constant(self.n_class, dtype=tf.float32), tf.reduce_sum(self.img_label)))
 
-        self.precq_loss_img = tf.reduce_mean(tf.reduce_sum(tf.square(tf.sub(self.img_last_layer, tf.matmul(self.b_img, self.C))), 1))
-        word_dict = tf.constant(np.loadtxt(self.wordvec_dict), dtype=tf.float32)
-        self.cq_loss_img = tf.reduce_mean(tf.reduce_sum(tf.square(tf.matmul(tf.sub(self.img_last_layer, tf.matmul(self.b_img, self.C)), tf.transpose(word_dict))), 1))
+        self.cq_loss_img = tf.reduce_mean(tf.reduce_sum(tf.square(tf.sub(self.img_last_layer, tf.matmul(self.b_img, self.C))), 1))
+        #word_dict = tf.constant(np.loadtxt(self.wordvec_dict), dtype=tf.float32)
+        #self.cq_loss_img = tf.reduce_mean(tf.reduce_sum(tf.square(tf.matmul(tf.sub(self.img_last_layer, tf.matmul(self.b_img, self.C)), tf.transpose(word_dict))), 1))
         self.q_lambda = tf.Variable(self.cq_lambda, name='cq_lambda')
         self.cq_loss = tf.mul(self.q_lambda, self.cq_loss_img)
         self.loss = tf.add(self.cos_loss, self.cq_loss)
@@ -588,6 +612,55 @@ class DVSQ(object):
             else:
                 print('Cosine Loss: %s'%loss)
 
+        
+        C_tmp = self.sess.run(self.C.assign(self.initial_centers(img_database.output)))
+        self.update_codes_batch(img_query, self.code_batch_size)
+        self.update_codes_batch(img_database, self.code_batch_size)
+        
+        print ("%s #validation# calculating MAP@%d" % (datetime.now(), R))
+        ## save features and codes
+        self.save_codes(img_database, img_query, C_tmp)
+
+        mAPs = MAPs_CQ(C_tmp, self.subspace_num, self.subcenter_num, R)
+        return {
+            'i2i_nocq': mAPs.get_mAPs_by_feature(img_database, img_query),
+            'i2i_AQD': mAPs.get_mAPs_AQD(img_database, img_query),
+            'i2i_SQD': mAPs.get_mAPs_SQD(img_database, img_query),
+        }
+    
+    def validation_pq(self, img_query, img_database, R=100):
+        print ("%s #validation# start validation")
+        query_batch = int(ceil(img_query.n_samples / self.batch_size))
+        print ("%s #validation# totally %d query in %d batches" % (datetime.now(), img_query.n_samples, query_batch))
+        if self.console_log:
+            bar = ProgressBar(total=query_batch)
+        for i in xrange(query_batch):
+            images, labels, codes = img_query.next_batch(self.batch_size)
+
+            output, loss = self.sess.run([self.img_last_layer, self.cos_loss],
+                                   feed_dict={self.img: images, self.img_label: labels})
+            img_query.feed_batch_output(self.batch_size, output)
+            if False:
+                bar.move('Cosine Loss: %s'%loss)
+            else:
+                print('Cosine Loss: %s'%loss)
+
+        database_batch = int(ceil(img_database.n_samples / self.batch_size))
+        print ("%s #validation# totally %d database in %d batches" % (datetime.now(), img_database.n_samples, database_batch))
+        if self.console_log:
+            bar = ProgressBar(total=database_batch)
+        for i in xrange(database_batch):
+            images, labels, codes = img_database.next_batch(self.batch_size)
+
+            output, loss = self.sess.run([self.img_last_layer, self.cos_loss],
+                                   feed_dict={self.img: images, self.img_label: labels})
+            img_database.feed_batch_output(self.batch_size, output)
+            #print output[:10, :10]
+            if False:
+                bar.move('Cosine Loss: %s'%loss)
+            else:
+                print('Cosine Loss: %s'%loss)
+
         self.update_codes_batch(img_query, self.code_batch_size)
         self.update_codes_batch(img_database, self.code_batch_size)
         
@@ -609,4 +682,11 @@ def validation(database_img, query_img, config):
     img_database = Dataset(database_img, config['output_dim'], config['n_subspace'] * config['n_subcenter'])
     img_query = Dataset(query_img, config['output_dim'], config['n_subspace'] * config['n_subcenter'])
     model.validation(img_query, img_database, config['R'])
+    return
+
+def validation_pq(database_img, query_img, config):
+    model = DVSQ(config)
+    img_database = Dataset(database_img, config['output_dim'], config['n_subspace'] * config['n_subcenter'])
+    img_query = Dataset(query_img, config['output_dim'], config['n_subspace'] * config['n_subcenter'])
+    model.validation_pq(img_query, img_database, config['R'])
     return
