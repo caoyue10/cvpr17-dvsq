@@ -1,38 +1,27 @@
-# cvpr17-dvsq
+# aaai16-dqn
 
-This is the Tensorflow (Version 0.11) implementation of CVPR-17 paper "Deep Visual-Semantic Quantization for Efficient Image Retrieval". The descriptions of files in this directory are listed below:
+This is the Tensorflow (Version 0.11) implementation of AAAI-16 paper "Deep Quantization Networks for Efficient Image Retrieval". The descriptions of files in this directory are listed below:
 
-- `net.py`: contains the main implementation (network structure, loss function, optimization procedure and etc.) of the proposed approach `dvsq`.
-- `net_val.py`: contains the implementation of `dvsq` for evaluation.
+- `net.py`: contains the main implementation (network structure, loss function, optimization procedure and etc.) of the proposed approach `dqn`.
+- `net_val.py`: contains the implementation of `dqn` for evaluation.
 - `util.py`: contains the implementation of `Dataset`, `MAP` and `ProcessBar`.
-- `train_script.py`: gives an example to show how to train `dvsq` model. 
-- `validation_script.py`: gives an example to show how to evaluate the trained quantization model.
-- `run_dvsq.sh`: gives an example to show the full procedure of training and evaluating the proposed approach `dvsq`.
+- `train_script_dqn.py`: gives an example to show how to train `dqn` model. 
+- `validation_script_dqn.py`: gives an example to show how to evaluate the trained quantization model.
+- `run_dqn.sh`: gives an example to show the full procedure of training and evaluating the proposed approach `dqn`.
 
 Data Preparation
 ---------------
-In `data/nuswide_81/train.txt`, we give an example to show how to prepare image training data. In `data/nuswide_81/test.txt` and `data/nuswide_81/database.txt`, the list of testing and database images could be processed during predicting procedure. In `data/nuswide_81/nuswide_wordvec.txt`, we have already prepared the word vectors of the labels extracted by [Word2Vec model](https://code.google.com/archive/p/word2vec/) pretrained on Google News Dataset.
+In `data/nuswide_21/train.txt`, we give an example to show how to prepare image training data. In `data/nuswide_21/test.txt` and `data/nuswide_21/database.txt`, the list of testing and database images could be processed during predicting procedure.
 
 Training Model and Predicting
 ---------------
 The `bvlc_reference_caffenet` is used as the pre-trained model. If the NUS\_WIDE dataset and pre-trained caffemodel is prepared, the example can be run with the following command:
 ```
-"./run_dvsq.sh"
+"./run_dqn.sh"
 ```
 
 Citation
 ---------------
-    @inproceedings{conf/cvpr/CaoL0L17,
-      author    = {Yue Cao and
-                   Mingsheng Long and
-                   Jianmin Wang and
-                   Shichen Liu},
-      title     = {Deep Visual-Semantic Quantization for Efficient Image Retrieval},
-      booktitle = {2017 {IEEE} Conference on Computer Vision and Pattern Recognition,
-          {CVPR} 2017, Honolulu, Hawaii, USA, July 21-26, 2017}
-    }
-
-In branch aaai16-dqn, we've done a demo of our AAAI 16 paper: Deep Quantization Networks for Efficient Image Retrieval.
 
     @inproceedings{DBLP:conf/aaai/CaoL0ZW16,
       author    = {Yue Cao and
