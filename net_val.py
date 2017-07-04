@@ -341,7 +341,6 @@ class DVSQ(object):
         if self.loss_type == 'cos_margin_multi_label':
             assert self.output_dim == 300
             word_dict = tf.constant(np.loadtxt(self.wordvec_dict), dtype=tf.float32)
-            ids_dict = tf.constant(np.loadtxt(self.part_ids_dict), shape=[1,self.n_class], dtype=tf.float32)
             margin_param = tf.constant(self.margin_param, dtype=tf.float32)
 
             # N: batchsize, L: label_dim, D: 300
@@ -380,7 +379,6 @@ class DVSQ(object):
         elif self.loss_type == 'cos_softmargin_multi_label':
             assert self.output_dim == 300
             word_dict = tf.constant(np.loadtxt(self.wordvec_dict), dtype=tf.float32)
-            ids_dict = tf.constant(np.loadtxt(self.part_ids_dict), shape=[1,self.n_class], dtype=tf.float32)
             #margin_param = tf.constant(self.margin_param, dtype=tf.float32)
 
             # N: batchsize, L: label_dim, D: 300
